@@ -30,13 +30,11 @@ func (c *Client) GetRandomCard(ctx context.Context, deckName string) (string, er
 		"params":  map[string]string{"query": "deck:" + deckName},
 	}
 
-	// 2. Сериализуем в JSON
 	jsonBody, err := json.Marshal(payload)
 	if err != nil {
 		return "", err
 	}
 
-	// 3. Создаем Reader из срезa байт
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseUrl, bytes.NewBuffer(jsonBody))
 
 	if err != nil {
