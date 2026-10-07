@@ -2,30 +2,32 @@ package main
 
 import (
 	"ankibot/internal/client/anki"
-	"ankibot/internal/service"
 	"context"
 	"fmt"
 	"log"
-	"net/http"
 	"time"
 )
 
-// интерфейсы никогда не передаются по указателю, под капотом передается конкретная реализация,
-func ping(w http.ResponseWriter, r *http.Request) {
-	fmt.Print(w, "Hello, world")
-}
 func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second) //корень дерева контекстов
 	defer cancel()                                                          //гарантия очистки ресурсов контекста
 
-	ankiClient := anki.NewClient("http://localhost:8999/v1/cards/random", 5*time.Second)
-	cardService := service.NewCardService(ankiClient)
+	ankiClient := anki.NewClient("http://127.0.0.1:8765", 2*time.Second)
 
-	deckName := "espagñol"
-	card, err := cardService.GetNextCard(ctx, deckName)
-	if err != nil {
-		log.Fatalf("Ошибка при получении карточки: %v", err)
+	if err := ankiClient.EnsureAppRunning(ctx); err != nil {
+		log.Fatalf("❌ Не удалось запустить Anki: %v", err)
 	}
 
-	fmt.Printf("Успешно получена карточка: %s\n", card)
+	decks, err := ankiClient.GetDeckNames(ctx)
+	if err != nil {
+		log.Fatalf("❌ Ошибка: %v", err)
+	}
+	fmt.Printf("✅ Успешное подключение! Ваши колоды в Anki: %v\n", decks)
+
+	cardIDs, err := ankiClient.FindCards(ctx, decks[0])
+	if err != nil {
+		log.Fatalf("❌ Ошибка: %v", err)
+	}
+
+	fmt.Printf("✅ Найдено карт в колоде: %d. ID карт: %v\n", len(cardIDs), cardIDs)
 }
