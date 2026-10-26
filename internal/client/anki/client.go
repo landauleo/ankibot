@@ -25,9 +25,9 @@ func NewClient(baseURL string, timeout time.Duration) *Client {
 }
 
 type RequestDto struct {
-	Action  string      `json:"action"`
-	Version int         `json:"version"`
-	Params  interface{} `json:"params,omitempty"` //omitempty - не добавлять в конечный json, если поле nil
+	Action  string `json:"action"`
+	Version int    `json:"version"`
+	Params  any    `json:"params,omitempty"` //omitempty - не добавлять в конечный json, если поле nil
 }
 
 type ResponseDto struct {
@@ -52,7 +52,7 @@ func (c *Client) GetDeckNames(ctx context.Context) ([]string, error) {
 
 func (c *Client) GetRandomCard(ctx context.Context, deckName string) (string, error) {
 	//AnkiConnect устроена по спецификации JSON-RPC 2.0 -> все запросы отправляются методом POST
-	payload := map[string]interface{}{
+	payload := map[string]any{
 		"action":  "findCards",
 		"version": 6,
 		"params":  map[string]string{"query": "deck:" + deckName},
@@ -119,7 +119,31 @@ func (c *Client) FindCards(ctx context.Context, deckName string) ([]int64, error
 	return cardsIds, nil
 }
 
-func (c *Client) execute(ctx context.Context, action string, params interface{}) (json.RawMessage, error) {
+// конкретное поле карты ("Front" или "Back")
+type CardField struct {
+	Value string `json:"value"`
+}
+
+type CardInfoDto struct {
+	CardID int64                `json:"cardId"`
+	Fields map[string]CardField `json:"fields"` // map ("Front" -> CardField, "Back" -> CardField)
+}
+
+func (c *Client) GetCardsInfo(ctx context.Context, cardIds []int64) ([]CardInfoDto, error) {
+	params := map[string]any{"cards": cardIds}
+
+	rawResult, err := c.execute(ctx, "cardsInfo", params)
+	if err != nil {
+		return nil, err
+	}
+	var cards []CardInfoDto
+	if err := json.Unmarshal(rawResult, &cards); err != nil {
+		return nil, fmt.Errorf("ошибка парсинга информации о картах: %w", err)
+	}
+
+	return cards, nil
+}
+func (c *Client) execute(ctx context.Context, action string, params any) (json.RawMessage, error) {
 	reqBody := RequestDto{
 		Action:  action,
 		Version: 6,
